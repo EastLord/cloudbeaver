@@ -155,8 +155,8 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
         // App config
         Map<String, Object> appConfig = JSONUtils.getObject(configProps, "app");
         preValidateAppConfiguration(appConfig);
-        gson.fromJson(gson.toJson(appConfig), CBAppConfig.class);
-        readProductConfiguration(serverConfig, gson);
+        CBAppConfig cbAppConfig = gson.fromJson(gson.toJson(appConfig), CBAppConfig.class);
+        readProductConfiguration(serverConfig, cbAppConfig, gson);
     }
 
     public T parseServerConfiguration() {
@@ -225,7 +225,7 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
         appConfiguration.setAuthProvidersConfigurations(mergedAuthProviders);
     }
 
-    protected void readProductConfiguration(Map<String, Object> serverConfig, Gson gson)
+    protected void readProductConfiguration(Map<String, Object> serverConfig, CBAppConfig cbAppConfig, Gson gson)
         throws DBException {
         // legacy configuration with path to product.conf file
         if (!serverConfig.containsKey(CBConstants.PARAM_PRODUCT_SETTINGS)
@@ -273,6 +273,18 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
                 }
             }
         }
+
+        if (workspacePath != null && IOUtils.isFileFromDefaultFS(getWorkspacePath())) {
+            Path runtimeAppConfigPath = getRuntimeAppConfigPath();
+            if (Files.exists(runtimeAppConfigPath)) {
+
+                Number resourceQuota = cbAppConfig.getResourceQuota(CBConstants.QUOTA_PROP_FILE_LIMIT);
+                if (resourceQuota != null) {
+
+                }
+            }
+        }
+
     }
 
     protected Map<String, Object> readConnectionsPermissionsConfiguration(Path parentPath) {
