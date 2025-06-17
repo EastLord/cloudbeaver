@@ -139,6 +139,7 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
         Gson gson = getGson();
         Map<String, Object> currentConfigurationAsMap = gson.fromJson(gson.toJson(getServerConfiguration()),
             JSONUtils.MAP_TYPE_TOKEN);
+        Map<String, Object> originalServerConfig = new HashMap<>(serverConfig);
         serverConfig = ServletAppUtils.mergeConfigurations(currentConfigurationAsMap, serverConfig);
         gson.fromJson(
             gson.toJson(serverConfig),
@@ -156,7 +157,7 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
         Map<String, Object> appConfig = JSONUtils.getObject(configProps, "app");
         preValidateAppConfiguration(appConfig);
         CBAppConfig cbAppConfig = gson.fromJson(gson.toJson(appConfig), CBAppConfig.class);
-        readProductConfiguration(serverConfig, cbAppConfig, gson);
+        readProductConfiguration(serverConfig, originalServerConfig, cbAppConfig, gson);
     }
 
     public T parseServerConfiguration() {
@@ -225,7 +226,9 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
         appConfiguration.setAuthProvidersConfigurations(mergedAuthProviders);
     }
 
-    protected void readProductConfiguration(Map<String, Object> serverConfig, CBAppConfig cbAppConfig, Gson gson)
+    protected void readProductConfiguration(Map<String, Object> serverConfig,
+                                            Map<String, Object> originalServerConfig,
+                                            CBAppConfig cbAppConfig, Gson gson)
         throws DBException {
         // legacy configuration with path to product.conf file
         if (!serverConfig.containsKey(CBConstants.PARAM_PRODUCT_SETTINGS)
@@ -274,7 +277,7 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
             }
         }
 
-        updateDataEditorMaxBlobSizeProperty(serverConfig, cbAppConfig);
+        updateDataEditorMaxBlobSizeProperty(originalServerConfig, cbAppConfig);
     }
 
     protected Map<String, Object> readConnectionsPermissionsConfiguration(Path parentPath) {
@@ -656,36 +659,29 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
 
     }
 
-    private void updateDataEditorMaxBlobSizeProperty(Map<String, Object> serverConfig, CBAppConfig cbAppConfig) throws DBException {
-        var productSettings = getMap(serverConfig, CBConstants.PARAM_PRODUCT_SETTINGS);
+    @SuppressWarnings("unchecked")
+    private void updateDataEditorMaxBlobSizeProperty(Map<String, Object> originalServerConfig, CBAppConfig cbAppConfig) throws DBException {
+        var productSettings = (Map<String, Object>) originalServerConfig.get(CBConstants.PARAM_PRODUCT_SETTINGS);
         if (productSettings != null) {
-            var actualValue = productSettings.get(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB);
+            var actualValue = productSettings.get(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE);
             if (actualValue != null) {
                 try {
                     long value = Long.parseLong(actualValue.toString());
                     serverConfiguration.getProductSettings()
-                        .put(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB, Math.max(1, value / 1024));
+                        .put(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE, value);
                 } catch (NumberFormatException e) {
                     throw new DBException("Invalid format for max blob size: " + actualValue, e);
                 }
+                return;
             }
-            return;
         }
 
         var quota = cbAppConfig.getResourceQuota(CBConstants.QUOTA_PROP_FILE_LIMIT);
         if (quota instanceof Number number) {
-            long value = Math.max(1, number.longValue() / 1024);
+            long value = Math.max(1, number.longValue());
             serverConfiguration.getProductSettings()
-                .put(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB, value);
+                .put(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE, value);
         }
     }
 
-
-    private Map<String, Object> getMap(Object parent, String key) {
-        if (!(parent instanceof Map<?,?> map)) return null;
-        var value = map.get(key);
-        return (value instanceof Map<?,?> inner)
-            ? (Map<String, Object>) inner
-            : null;
-    }
 }

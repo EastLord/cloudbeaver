@@ -67,11 +67,11 @@ public class WebSQLDataLOBReceiver extends WebSQLCellValueReceiver {
         Long fileSizeLimit = (Long) ServletAppUtils.getServletApplication()
             .getServerConfiguration()
             .getProductSettings()
-            .get(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB) * 1024;
+            .get(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE);
         if (fileSizeLimit != null && binaryValue.length > fileSizeLimit) {
             throw new DBQuotaException(
                 "Data export quota exceeded \n Please increase the resourceQuotas parameter in configuration",
-                CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB, fileSizeLimit, binaryValue.length
+                CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE, fileSizeLimit, binaryValue.length
             );
         }
         Path file = WebSQLDataLOBReceiver.DATA_EXPORT_FOLDER.resolve(exportFileName);
