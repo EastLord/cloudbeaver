@@ -274,17 +274,7 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
             }
         }
 
-        if (workspacePath != null && IOUtils.isFileFromDefaultFS(getWorkspacePath())) {
-            Path runtimeAppConfigPath = getRuntimeAppConfigPath();
-            if (Files.exists(runtimeAppConfigPath)) {
-
-                Number resourceQuota = cbAppConfig.getResourceQuota(CBConstants.QUOTA_PROP_FILE_LIMIT);
-                if (resourceQuota != null) {
-
-                }
-            }
-        }
-
+        updateDataEditorMaxBlobSizeProperty(serverConfig, cbAppConfig);
     }
 
     protected Map<String, Object> readConnectionsPermissionsConfiguration(Path parentPath) {
@@ -664,5 +654,38 @@ public abstract class CBServerConfigurationController<T extends CBServerConfig>
     @Override
     public void validateFinalServerConfiguration() throws DBException {
 
+    }
+
+    private void updateDataEditorMaxBlobSizeProperty(Map<String, Object> serverConfig, CBAppConfig cbAppConfig) throws DBException {
+        var productSettings = getMap(serverConfig, CBConstants.PARAM_PRODUCT_SETTINGS);
+        if (productSettings != null) {
+            var actualValue = productSettings.get(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB);
+            if (actualValue != null) {
+                try {
+                    long value = Long.parseLong(actualValue.toString());
+                    serverConfiguration.getProductSettings()
+                        .put(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB, Math.max(1, value / 1024));
+                } catch (NumberFormatException e) {
+                    throw new DBException("Invalid format for max blob size: " + actualValue, e);
+                }
+            }
+            return;
+        }
+
+        var quota = cbAppConfig.getResourceQuota(CBConstants.QUOTA_PROP_FILE_LIMIT);
+        if (quota instanceof Number number) {
+            long value = Math.max(1, number.longValue() / 1024);
+            serverConfiguration.getProductSettings()
+                .put(CBConstants.PARAM_DATA_EDITOR_BLOB_MAX_SIZE_IN_KB, value);
+        }
+    }
+
+
+    private Map<String, Object> getMap(Object parent, String key) {
+        if (!(parent instanceof Map<?,?> map)) return null;
+        var value = map.get(key);
+        return (value instanceof Map<?,?> inner)
+            ? (Map<String, Object>) inner
+            : null;
     }
 }
